@@ -2,7 +2,7 @@
 
 Per spec §4.1: bundles PG-17 + Dragonfly + QuestDB + Redpanda + UP's 5 ingest
 processes + the job_engine Node binaries (`startup` + `cycle`), supervised by
-s6-overlay 3.x. customer_backend's `spawn_job_pod` (Wave 6) launches one of
+s6-overlay 3.2.0.0. customer_backend's `spawn_job_pod` (Wave 6) launches one of
 these per `(customer_id, market_id, wallet_id)` job.
 
 ## Build
@@ -37,7 +37,7 @@ The pod is normally launched by
 (per spec §4.2). For local smoke without customer_backend, see
 `tests/test_image_build.sh`.
 
-## Supervised services (11 total)
+## Supervised services (12 total)
 
 | s6-rc unit         | Type    | Depends on                                      |
 |--------------------|---------|-------------------------------------------------|
