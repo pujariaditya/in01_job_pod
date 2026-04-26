@@ -184,3 +184,22 @@ script, no parent-dir build context, no UP_SOURCE / JOB_ENGINE_SOURCE
 build args). PR template + `tests/test_image_build.sh` updated to
 target the < 600 MB Pi-runtime ceiling instead of the < 2.5 GB
 all-in-one ceiling.
+
+## Customer visibility (Wave G — added 2026-04-26)
+
+`up-sse` extension (`agent/src/extensions/up-sse.ts`) publishes
+`JobEvent` objects to Redpanda topic `job-events` (keyed by `job_id`)
+on every `tool_call` + `agent_message`. Best-effort by design: send
+failures are logged + swallowed so visibility never crashes the
+trading agent.
+
+Visibility level (`summary | detail | full`) is read from
+`customer_settings.visibility_level` at boot via `loadVisibilityLevel`
+in `main.ts`. Tools and event payloads pass through `redact.ts` before
+publish, stripping sensitive keys (`signer_priv_key`, `signed_tx`,
+`api_key`, `encrypted_*`, `*_secret`) at every level — even `full` is
+safe to surface to the customer browser.
+
+Decision events use the canonical `{BUY, SELL, HOLD}` enum locked by
+Wave D Task 1.5. Customer dashboard consumption is documented in
+`customer_backend/docs/runbooks/2026-04-26-customer-visibility-rollout.md`.
