@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv bash
+exec s6-setuidgid postgres /usr/lib/postgresql/${PG_MAJOR}/bin/postgres \
+  -D /var/lib/postgresql/data \
+  -c config_file=/var/lib/postgresql/data/postgresql.conf

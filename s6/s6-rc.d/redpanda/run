@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+exec s6-setuidgid jobpod /usr/bin/redpanda \
+  --redpanda-cfg /etc/redpanda/redpanda.yaml \
+  --overprovisioned \
+  --smp 1 \
+  --reserve-memory 0M

@@ -1,0 +1,24 @@
+# /etc/redpanda-config/redpanda.yaml — single-node, in-pod broker.
+# Copied to /etc/redpanda/redpanda.yaml at runtime by entrypoint.sh.
+redpanda:
+  data_directory: /var/lib/redpanda/data
+  node_id: 0
+  seed_servers: []
+  rpc_server:
+    address: 127.0.0.1
+    port: 33145
+  kafka_api:
+    - address: 0.0.0.0
+      port: 9092
+  advertised_kafka_api:
+    - address: 127.0.0.1
+      port: 9092
+  admin:
+    - address: 0.0.0.0
+      port: 9644
+  developer_mode: true
+  empty_seed_starts_cluster: true
+rpk:
+  overprovisioned: true
+pandaproxy: {}
+schema_registry: {}

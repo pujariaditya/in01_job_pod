@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+# QuestDB launches its supervisor + worker; -f forwards logs to stdout/stderr
+# so s6 sees them. JAVA_HOME points at Eclipse Temurin JDK 21 installed via
+# packages.adoptium.net.
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/temurin-21-jre}"
+exec s6-setuidgid jobpod /opt/questdb/questdb.sh start \
+  -d /var/lib/questdb \
+  -t job_pod \
+  -f

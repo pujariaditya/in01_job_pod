@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+exec s6-setuidgid jobpod /usr/bin/dragonfly \
+  --logtostderr \
+  --unixsocket=/var/run/dragonfly/dragonfly.sock \
+  --unixsocketperm=600 \
+  --bind=0.0.0.0 \
+  --port=6379 \
+  --requirepass="${POD_DRAGONFLY_PASSWORD}" \
+  --proactor_threads=2

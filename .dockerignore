@@ -1,0 +1,13 @@
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/node_modules
+**/.venv
+**/.env
+**/.env.*
+.git
+.DS_Store
+# UP's pyproject readme is CLAUDE.md so we cannot strip *.md broadly.
+# Just ignore our own README + ad-hoc docs.
+job_pod/README.md
+**/.claude/

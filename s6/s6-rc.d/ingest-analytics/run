@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv bash
+cd /opt/up
+exec s6-setuidgid jobpod /opt/venv/bin/python -m app.analytics
