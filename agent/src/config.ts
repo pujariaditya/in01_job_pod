@@ -11,6 +11,12 @@ export interface AgentConfig {
   maxIdleMinutes: number;
   midChangeBpsThreshold: number;
   newTradeThreshold: number;
+  /**
+   * Redpanda brokers for the customer-visibility event bus
+   * (Wave G `up-sse` extension). Defaults to the pod-local broker on
+   * `127.0.0.1:9092`, matching `/job_pod/redpanda/redpanda.yaml`.
+   */
+  redpandaBrokers: string[];
 }
 
 function required(name: string): string {
@@ -49,5 +55,9 @@ export function loadConfig(): AgentConfig {
     maxIdleMinutes: optionalInt("UP_MAX_IDLE_MINUTES", 15),
     midChangeBpsThreshold: optionalNumber("UP_MID_CHANGE_BPS", 10),
     newTradeThreshold: optionalInt("UP_NEW_TRADE_THRESHOLD", 1),
+    redpandaBrokers: (process.env.REDPANDA_BROKERS ?? "127.0.0.1:9092")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
   };
 }

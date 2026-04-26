@@ -40,6 +40,7 @@ describe("loadConfig", () => {
     process.env.UP_SESSION_DIR = "/s";
     process.env.UP_CATALOG_CATEGORY = "sports";
     process.env.UP_CATALOG_SUBCATEGORY = "cricipl";
+    delete process.env.REDPANDA_BROKERS;
 
     const cfg = loadConfig();
     expect(cfg.cycleIntervalMs).toBe(60_000);
@@ -47,5 +48,20 @@ describe("loadConfig", () => {
     expect(cfg.maxIdleMinutes).toBe(15);
     expect(cfg.midChangeBpsThreshold).toBe(10);
     expect(cfg.newTradeThreshold).toBe(1);
+    // Wave G: pod-local Redpanda broker is the default.
+    expect(cfg.redpandaBrokers).toEqual(["127.0.0.1:9092"]);
+  });
+
+  it("parses REDPANDA_BROKERS as a comma-separated list", () => {
+    process.env.UP_JOB_ID = "j1";
+    process.env.UP_CUSTOMER_ID = "c1";
+    process.env.UP_DAEMON_SOCK = "/tmp/d.sock";
+    process.env.POLYPI_BASE_URL = "https://p";
+    process.env.UP_SESSION_DIR = "/s";
+    process.env.UP_CATALOG_CATEGORY = "sports";
+    process.env.UP_CATALOG_SUBCATEGORY = "cricipl";
+    process.env.REDPANDA_BROKERS = "host1:9092, host2:9092 ,host3:9092";
+    const cfg = loadConfig();
+    expect(cfg.redpandaBrokers).toEqual(["host1:9092", "host2:9092", "host3:9092"]);
   });
 });

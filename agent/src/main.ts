@@ -11,6 +11,9 @@ import { installPolypiTools } from "./extensions/up-mcp-polypi";
 import { installUpStage } from "./extensions/up-stage";
 import { installUpMemory } from "./extensions/up-memory";
 import { installUpKillswitch } from "./extensions/up-killswitch";
+import { installUpSse } from "./extensions/up-sse";
+import { JobEventProducer } from "./redpanda";
+import type { VisibilityLevel } from "./redact";
 import type { PiLike } from "./extensions/up-tools";
 
 const args = new Set(process.argv.slice(2));
@@ -49,11 +52,28 @@ async function main(): Promise<number> {
     };
   };
 
-  // Pi runtime. The 5 extension factories below are wired through
+  // Wave G: customer-visibility producer + per-customer visibility level.
+  // Best-effort: failures here MUST NOT crash the agent boot.
+  const visibilityLevel = await loadVisibilityLevel(pool, cfg.customerId);
+  const sseProducer = new JobEventProducer({
+    jobId: cfg.jobId,
+    brokers: cfg.redpandaBrokers,
+  });
+  try {
+    await sseProducer.connect();
+  } catch (e) {
+    console.error(
+      `up-sse producer connect failed (continuing without visibility): ${
+        e instanceof Error ? e.message : e
+      }`,
+    );
+  }
+
+  // Pi runtime. The 6 extension factories below are wired through
   // an adapter (createPiLikeAdapter) that translates our structural
   // PiLike contract -- registerTool + on(event, fn) with simplified
   // event/ctx shapes -- to Pi 0.70.2's real ExtensionAPI. The
-  // adapter is the only Pi-version-coupled glue; the 5 extensions
+  // adapter is the only Pi-version-coupled glue; the 6 extensions
   // themselves never import from @mariozechner/pi-coding-agent.
   const extensionFactories = buildExtensionFactories({
     daemon,
@@ -64,6 +84,8 @@ async function main(): Promise<number> {
     snapshotProvider,
     customerId: cfg.customerId,
     jobId: cfg.jobId,
+    sseProducer,
+    visibilityLevel,
   });
 
   const agent = await createPiAgent({
@@ -75,6 +97,7 @@ async function main(): Promise<number> {
   if (PRINT_AND_EXIT) {
     for (const t of agent.listTools()) console.log(t);
     await agent.shutdown();
+    await sseProducer.disconnect().catch(() => {});
     await closePool();
     await closeDragonfly();
     return 0;
@@ -84,6 +107,7 @@ async function main(): Promise<number> {
     await agent.runTurn("Run one cycle.");
     await agent.shutdown();
     await daemon.close();
+    await sseProducer.disconnect().catch(() => {});
     await closePool();
     await closeDragonfly();
     return 0;
@@ -136,9 +160,37 @@ async function main(): Promise<number> {
 
   await agent.shutdown();
   await daemon.close();
+  await sseProducer.disconnect().catch(() => {});
   await closePool();
   await closeDragonfly();
   return 0;
+}
+
+/**
+ * Load `visibility_level` for the customer from `customer_settings`
+ * (added by customer_backend migration 0015). Falls back to 'summary'
+ * on any error — visibility is best-effort and must not block boot.
+ */
+export async function loadVisibilityLevel(
+  pool: any,
+  customerId: string,
+): Promise<VisibilityLevel> {
+  try {
+    const r = await pool.query(
+      "SELECT visibility_level FROM customer_settings WHERE customer_id = $1::uuid",
+      [customerId],
+    );
+    const v = r.rows?.[0]?.visibility_level;
+    if (v === "summary" || v === "detail" || v === "full") return v;
+    return "summary";
+  } catch (e) {
+    console.error(
+      `loadVisibilityLevel failed (defaulting to summary): ${
+        e instanceof Error ? e.message : e
+      }`,
+    );
+    return "summary";
+  }
 }
 
 interface CycleDecision {
@@ -256,15 +308,21 @@ interface ExtensionFactoryDeps {
   snapshotProvider: (jobId: string) => Promise<{ tob_bid: number; tob_ask: number; ts?: string }>;
   customerId: string;
   jobId: string;
+  /** Wave G: customer-visibility event producer (Redpanda). */
+  sseProducer: JobEventProducer;
+  /** Wave G: per-customer visibility level (read from customer_settings at boot). */
+  visibilityLevel: VisibilityLevel;
 }
 
 /**
- * Build the 5-extension factory list in the order required by spec §5.5/§12:
+ * Build the 6-extension factory list in the order required by spec §5.5/§12:
  *   1. up-tools         — auto-register all daemon tools from `_manifest`.
  *   2. up-mcp-polypi    — wrap the polypi MCP tools.
  *   3. up-stage         — hard sequencer with 3-violation guard.
  *   4. up-memory        — durable load + tool_call log + compaction.
  *   5. up-killswitch    — admin-flippable Dragonfly flag polling.
+ *   6. up-sse           — Wave G: publish redacted JobEvents to Redpanda
+ *                         for the customer's live SSE stream.
  *
  * Each factory receives a `PiLike` adapter (see `createPiLikeAdapter`) so the
  * extensions remain decoupled from the concrete @mariozechner/pi-coding-agent
@@ -293,6 +351,10 @@ export function buildExtensionFactories(deps: ExtensionFactoryDeps): Array<(pi: 
       lifecycleWriter: deps.lifecycleWriter,
       customerId: deps.customerId,
       jobId: deps.jobId,
+    }),
+    async (pi: PiLike) => installUpSse(pi, {
+      producer: deps.sseProducer,
+      visibilityLevel: deps.visibilityLevel,
     }),
   ];
 }

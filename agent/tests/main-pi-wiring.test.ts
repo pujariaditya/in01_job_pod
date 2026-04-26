@@ -1,19 +1,20 @@
 /**
  * Pi 0.70.2 wiring tests for main.ts.
  *
- * Pi-migration Wave D Task 7. Verifies the integration shape WITHOUT
- * booting Pi: the 5-extension factory list is built in the right
- * order, each factory wires its dependency to the right injected
- * client, and the `createPiLikeAdapter` correctly translates between
- * Pi 0.70's real `ExtensionAPI` event/ctx shapes and the structural
- * `PiLike` contract Wave D extensions were written against.
+ * Pi-migration Wave D Task 7 (extended in Wave G Task 4 for the 6th
+ * extension `up-sse`). Verifies the integration shape WITHOUT booting
+ * Pi: the 6-extension factory list is built in the right order, each
+ * factory wires its dependency to the right injected client, and the
+ * `createPiLikeAdapter` correctly translates between Pi 0.70's real
+ * `ExtensionAPI` event/ctx shapes and the structural `PiLike` contract
+ * Wave D extensions were written against.
  *
  * Real Pi-boot integration is out of scope for unit tests (requires a
  * live daemon + a real model + real auth) and is gated behind the
  * UP_INTEGRATION env var in tests/integration/pi-boot.test.ts.
  */
 import { describe, it, expect, vi } from "vitest";
-import { buildExtensionFactories, createPiLikeAdapter } from "../src/main";
+import { buildExtensionFactories, createPiLikeAdapter, loadVisibilityLevel } from "../src/main";
 
 function makeMockDeps() {
   const daemon = {
@@ -31,13 +32,19 @@ function makeMockDeps() {
   const dragonfly = { get: vi.fn().mockResolvedValue(null) } as any;
   const lifecycleWriter = vi.fn().mockResolvedValue(undefined);
   const snapshotProvider = vi.fn().mockResolvedValue({ tob_bid: 0.5, tob_ask: 0.51 });
-  return { daemon, polypi, pool, dragonfly, lifecycleWriter, snapshotProvider, customerId: "c1", jobId: "j1" };
+  const sseProducer = { publish: vi.fn().mockResolvedValue(undefined), disconnect: vi.fn() } as any;
+  return {
+    daemon, polypi, pool, dragonfly, lifecycleWriter, snapshotProvider,
+    customerId: "c1", jobId: "j1",
+    sseProducer,
+    visibilityLevel: "summary" as const,
+  };
 }
 
 describe("buildExtensionFactories", () => {
-  it("returns exactly 5 factories in spec order", () => {
+  it("returns exactly 6 factories in spec order", () => {
     const factories = buildExtensionFactories(makeMockDeps());
-    expect(factories).toHaveLength(5);
+    expect(factories).toHaveLength(6);
     factories.forEach((f: (...args: any[]) => any) => expect(typeof f).toBe("function"));
   });
 
@@ -94,6 +101,36 @@ describe("buildExtensionFactories", () => {
     const pi = { registerTool: vi.fn(), on: (e: string, fn: any) => { (handlers[e] ??= []).push(fn); } };
     await factories[4]!(pi as any);
     expect(handlers.tool_call?.length).toBe(1);
+  });
+
+  it("factory[5] (up-sse) registers tool_call + agent_message hooks", async () => {
+    const deps = makeMockDeps();
+    const factories = buildExtensionFactories(deps);
+    const handlers: Record<string, any[]> = {};
+    const pi = { registerTool: vi.fn(), on: (e: string, fn: any) => { (handlers[e] ??= []).push(fn); } };
+    await factories[5]!(pi as any);
+    expect(handlers.tool_call?.length).toBe(1);
+    expect(handlers.agent_message?.length).toBe(1);
+  });
+});
+
+describe("loadVisibilityLevel", () => {
+  it("returns the row's visibility_level when set to a canonical value", async () => {
+    const pool = { query: vi.fn().mockResolvedValue({ rows: [{ visibility_level: "detail" }] }) };
+    const v = await loadVisibilityLevel(pool, "c1");
+    expect(v).toBe("detail");
+  });
+
+  it("defaults to 'summary' when no row exists", async () => {
+    const pool = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const v = await loadVisibilityLevel(pool, "c1");
+    expect(v).toBe("summary");
+  });
+
+  it("defaults to 'summary' when query throws (table missing, etc)", async () => {
+    const pool = { query: vi.fn().mockRejectedValue(new Error("relation does not exist")) };
+    const v = await loadVisibilityLevel(pool, "c1");
+    expect(v).toBe("summary");
   });
 });
 

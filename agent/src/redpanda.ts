@@ -43,8 +43,9 @@ export class JobEventProducer {
       clientId: `up-pi-pod-${this.opts.jobId}`,
       brokers: this.opts.brokers,
     });
-    this.producer = kafka.producer({ allowAutoTopicCreation: true });
-    await this.producer.connect();
+    const producer = kafka.producer({ allowAutoTopicCreation: true });
+    await producer.connect();
+    this.producer = producer;
   }
 
   async publish(event: JobEvent): Promise<void> {
