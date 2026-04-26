@@ -17,12 +17,14 @@ if ! docker info >/dev/null 2>&1; then
   exit 0
 fi
 
-./build.sh
+TAG="${TAG:-up-pi-pod:test}"
+docker build -t "$TAG" .
 
-SIZE_BYTES=$(docker image inspect job-pod:latest --format '{{.Size}}')
-SIZE_GB=$(echo "scale=2; $SIZE_BYTES / 1024 / 1024 / 1024" | bc)
-echo "image size: ${SIZE_GB} GB"
-if (( $(echo "$SIZE_GB > 2.5" | bc -l) )); then
-  echo "WARN: image > 2.5 GB target ceiling" >&2
+SIZE_BYTES=$(docker image inspect "$TAG" --format '{{.Size}}')
+SIZE_MB=$(echo "scale=2; $SIZE_BYTES / 1024 / 1024" | bc)
+echo "image size: ${SIZE_MB} MB"
+# Pi-runtime image is Node + .pi skill bundle only; small target ceiling
+if (( $(echo "$SIZE_MB > 600" | bc -l) )); then
+  echo "WARN: image > 600 MB ceiling for Pi-runtime image" >&2
 fi
 echo "ok: build clean"

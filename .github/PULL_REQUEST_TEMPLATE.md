@@ -13,11 +13,10 @@
 
 ## Verification
 
-- [ ] `./build.sh` succeeds locally on arm64
-- [ ] Image size delta is reasonable (current baseline: ~515 MB)
-- [ ] All supervised services come up cleanly (`docker logs` shows no s6 oneshot failures)
-- [ ] `healthcheck.sh` returns 0 after the boot grace period
-- [ ] No new build args (or: documented in README's Build section)
+- [ ] `docker build -t up-pi-pod:test .` succeeds locally on arm64
+- [ ] Image size delta is reasonable (Pi-runtime baseline target: < 600 MB)
+- [ ] Daemon comes up cleanly and the pi-agent connects via `/var/lib/pi/up-daemon.sock`
+- [ ] `HEALTHCHECK` (socket existence) passes after the boot grace period
 
 ## Risk
 
