@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "0.70.2",
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@sinclair/typebox": "^0.34.0",
     "ioredis": "^5.4.0",
     "kafkajs": "^2.2.4",

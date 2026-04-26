@@ -7,7 +7,7 @@ import { getPool, closePool } from "./db";
 import { getDragonfly, closeDragonfly } from "./dragonfly";
 import { writeLifecycleEvent } from "./lifecycle-events";
 import { installUpTools } from "./extensions/up-tools";
-import { installPolypiTools } from "./extensions/up-mcp-polypi";
+import { installPolypiTools } from "./extensions/up-polypi";
 import { installUpStage } from "./extensions/up-stage";
 import { installUpMemory } from "./extensions/up-memory";
 import { installUpKillswitch } from "./extensions/up-killswitch";
@@ -27,9 +27,6 @@ async function main(): Promise<number> {
   // Daemon UDS client
   const daemon = new DaemonClient(cfg.daemonSock);
   await daemon.connect();
-
-  // Polypi MCP client (StreamableHTTP transport per spec §3).
-  const polypi = await connectPolypi(cfg.polypiBaseUrl);
 
   // Shared infra clients (PG + Dragonfly) used by the 3 Wave D
   // lifecycle extensions. Module singletons; closed at shutdown.
@@ -77,7 +74,7 @@ async function main(): Promise<number> {
   // themselves never import from @mariozechner/pi-coding-agent.
   const extensionFactories = buildExtensionFactories({
     daemon,
-    polypi: polypi as any,
+    polypiBaseUrl: cfg.polypiBaseUrl,
     pool,
     dragonfly,
     lifecycleWriter,
@@ -282,26 +279,12 @@ export function computeDrift(snap: any, lastSnap: any): { maxBps: number; newTra
   return { maxBps, newTrades };
 }
 
-// --- Polypi MCP client wiring ---------------------------------------------
-
-async function connectPolypi(baseUrl: string): Promise<any> {
-  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-  const { StreamableHTTPClientTransport } = await import(
-    "@modelcontextprotocol/sdk/client/streamableHttp.js"
-  );
-  const c = new Client(
-    { name: "up-pi-agent", version: "0.1.0" },
-    { capabilities: {} },
-  );
-  await c.connect(new StreamableHTTPClientTransport(new URL(baseUrl)));
-  return c;
-}
-
 // --- Extension factory builder --------------------------------------------
 
 interface ExtensionFactoryDeps {
   daemon: DaemonClient;
-  polypi: any;
+  /** polypi v1 HTTP API base URL (e.g. https://polypi.example.com). */
+  polypiBaseUrl: string;
   pool: any;
   dragonfly: any;
   lifecycleWriter: (ev: any) => Promise<void>;
@@ -317,7 +300,7 @@ interface ExtensionFactoryDeps {
 /**
  * Build the 6-extension factory list in the order required by spec §5.5/§12:
  *   1. up-tools         — auto-register all daemon tools from `_manifest`.
- *   2. up-mcp-polypi    — wrap the polypi MCP tools.
+ *   2. up-polypi        — wrap the polypi v1 HTTP API tools (zero-MCP).
  *   3. up-stage         — hard sequencer with 3-violation guard.
  *   4. up-memory        — durable load + tool_call log + compaction.
  *   5. up-killswitch    — admin-flippable Dragonfly flag polling.
@@ -334,7 +317,7 @@ interface ExtensionFactoryDeps {
 export function buildExtensionFactories(deps: ExtensionFactoryDeps): Array<(pi: PiLike) => Promise<void>> {
   return [
     async (pi: PiLike) => installUpTools(pi, deps.daemon),
-    async (pi: PiLike) => installPolypiTools(pi, deps.polypi),
+    async (pi: PiLike) => installPolypiTools(pi, deps.polypiBaseUrl),
     async (pi: PiLike) => installUpStage(pi, {
       lifecycleWriter: deps.lifecycleWriter,
       jobId: deps.jobId,

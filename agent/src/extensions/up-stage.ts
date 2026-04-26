@@ -74,13 +74,13 @@ export const STAGE_ALLOWLISTS: Record<Stage, string[]> = {
   ],
   Decide: [
     "decide_analyze_multi_leg_strategy", "decide_detect_negrisk_arbitrage",
-    "polypi_estimate_slippage", "order_preview",
+    "polypi_order_estimate_order_fill", "order_preview",
   ],
   Critique: [
     "agent_findings_write",
   ],
   Commit: [
-    "polypi_create_order", "agent_findings_write",
+    "polypi_order_place_order", "agent_findings_write",
   ],
 };
 

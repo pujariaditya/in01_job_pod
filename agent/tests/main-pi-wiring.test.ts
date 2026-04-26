@@ -22,19 +22,14 @@ function makeMockDeps() {
       { name: "snapshot_get_top_of_book", description: "tob", params_schema: { type: "object", properties: {} } },
     ]}),
   } as any;
-  const polypi = {
-    listTools: vi.fn().mockResolvedValue({ tools: [
-      { name: "polypi_create_order", description: "place", inputSchema: { type: "object", properties: {} } },
-    ]}),
-    callTool: vi.fn(),
-  } as any;
+  const polypiBaseUrl = "https://polypi.example.com";
   const pool = { query: vi.fn().mockResolvedValue({ rows: [] }) } as any;
   const dragonfly = { get: vi.fn().mockResolvedValue(null) } as any;
   const lifecycleWriter = vi.fn().mockResolvedValue(undefined);
   const snapshotProvider = vi.fn().mockResolvedValue({ tob_bid: 0.5, tob_ask: 0.51 });
   const sseProducer = { publish: vi.fn().mockResolvedValue(undefined), disconnect: vi.fn() } as any;
   return {
-    daemon, polypi, pool, dragonfly, lifecycleWriter, snapshotProvider,
+    daemon, polypiBaseUrl, pool, dragonfly, lifecycleWriter, snapshotProvider,
     customerId: "c1", jobId: "j1",
     sseProducer,
     visibilityLevel: "summary" as const,
@@ -58,14 +53,17 @@ describe("buildExtensionFactories", () => {
     expect(tools.map((t) => t.name)).toContain("snapshot_get_top_of_book");
   });
 
-  it("factory[1] (up-mcp-polypi) registers tools off the polypi MCP", async () => {
+  it("factory[1] (up-polypi) registers all 17 polypi HTTP tools", async () => {
     const deps = makeMockDeps();
     const factories = buildExtensionFactories(deps);
     const tools: any[] = [];
     const pi = { registerTool: (s: any) => tools.push(s), on: vi.fn() };
     await factories[1]!(pi as any);
-    expect(deps.polypi.listTools).toHaveBeenCalled();
-    expect(tools.map((t) => t.name)).toContain("polypi_create_order");
+    expect(tools).toHaveLength(17);
+    const names = tools.map((t) => t.name);
+    expect(names).toContain("polypi_order_place_order");
+    expect(names).toContain("polypi_order_estimate_order_fill");
+    expect(names).toContain("polypi_account_compute_pnl");
   });
 
   it("factory[2] (up-stage) registers stage_advance and a tool_call gate", async () => {
