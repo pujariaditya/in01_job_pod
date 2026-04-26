@@ -90,3 +90,52 @@ secret material (`UP_JOB_ROUTING_SECRET`) is identical.
   `customer_db.jobs.state`.
 - Image size target: ≤ 2.5 GB. Largest contributors: JDK 21 (~500 MB),
   Redpanda (~600 MB), node + UP venv (~250 MB), debian base (~100 MB).
+
+## Pi runtime (Wave C — added 2026-04-26)
+
+`job_pod/agent/` is the Pi-coding-agent runtime that boots inside customer
+pods. TypeScript, Node 22, vitest. Builds via Dockerfile.pi → `up-pi-pod`.
+
+### Key components
+
+- `agent/src/main.ts` — SDK-mode entrypoint with cron loop + idle-skip gate
+  (per spec §5.5: fingerprint TOB+trade-counts, skip turn if unchanged within
+  noise threshold AND time-since-last < max_idle_minutes; force-run on
+  cold-start, max-idle-elapsed, or snapshot failure).
+- `agent/src/daemon-client.ts` — async UDS client mirroring the Python one
+  in unusual-predictions/app/daemon/up_daemon_client.py.
+- `agent/src/schema-convert.ts` — JSON Schema → typebox converter for
+  Pydantic-emitted manifests.
+- `agent/src/extensions/up-tools.ts` — auto-registers all 77 daemon
+  handlers from `_manifest` at boot.
+- `agent/src/extensions/up-mcp-polypi.ts` — wraps polypi MCP tools
+  (the only remote MCP per spec §3) as Pi tools.
+- `.pi/skills/strategies/` — 17 strategy markdowns (synced from job_engine
+  via scripts/lint-skills-sync.sh until Wave F deletes job_engine).
+- `.pi/AGENTS.md` — global pod baseline (BUY/SELL/HOLD enum, stage
+  allowlists, hard rules).
+- `scripts/parity_compare.py` — Wave E cutover gate utility (≥99%
+  agreement across 48h).
+
+### Important Wave C → Wave D handoff
+
+The Pi 0.70.2 SDK API is materially different from the spec's pseudocode:
+real shape is `createAgentSession()` + `session.prompt(text)` +
+`session.subscribe()`, not `createCodingAgent()` + `agent.runTurn()`. The
+`createPiAgent` adapter in `agent/src/main.ts` is currently stubbed; Wave D
+must replace it with the real Pi SDK call before lifecycle extensions can
+be exercised end-to-end.
+
+### Build + run
+
+```bash
+cd job_pod/agent
+npm install
+npx vitest run               # 28 tests pass
+npx tsc --noEmit -p tsconfig.test.json
+```
+
+```bash
+docker build -f Dockerfile.pi -t up-pi-pod:wave-c .
+docker images up-pi-pod:wave-c   # ~132 MB compressed / ~679 MB on-disk arm64
+```
