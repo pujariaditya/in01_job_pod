@@ -19,5 +19,31 @@ kelly_fraction: 0.25
 requires_subcycle: false
 sources:
   - "tradetheoutcome.com Polymarket accuracy report"
+applicable:
+  - { category: sports,   subcategory: "*" }
+  - { category: crypto,   subcategory: "*" }
+  - { category: politics, subcategory: election }
+disallowed:
+  - { category: weather, subcategory: "*" }
+  - { category: news,    subcategory: "*" }
+validation:
+  scenarios:
+    - name: longshot_fade_sell
+      preconditions:
+        - { signal: mid,                  op: "<=", value: 0.10 }
+        - { signal: recent_realised_vol,  op: "<=", value: 0.5 }
+      expected_decision: SELL
+      reason_must_contain: ["longshot", "fade"]
+      tolerance:
+        false_negative_rate_max: 0.15
+    - name: calm_market_no_signal
+      preconditions:
+        - { signal: abs_zscore_60min, op: "<", value: 1.0 }
+      expected_decision: HOLD
+      reason_must_contain: ["no signal"]
+  forbidden:
+    - { condition: not_admitted,      decision_must_not_be: BUY }
+    - { condition: not_admitted,      decision_must_not_be: SELL }
+    - { condition: market_is_closing, decision_must_not_be: BUY }
 ---
 SELL YES on extreme longshots (<=0.10) with >=$10k liquidity.

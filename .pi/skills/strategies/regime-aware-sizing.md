@@ -10,5 +10,28 @@ kelly_fraction: 0.25
 requires_subcycle: false
 sources:
   - "harbourfrontquant — Hurst thresholds"
+applicable:
+  - { category: sports,   subcategory: "*" }
+  - { category: crypto,   subcategory: "*" }
+  - { category: politics, subcategory: "*" }
+disallowed:
+  - { category: weather, subcategory: "*" }
+validation:
+  scenarios:
+    - name: high_vol_regime_meta_signal
+      preconditions:
+        - { signal: recent_realised_vol, op: ">=", value: 0.5 }
+      expected_decision: HOLD
+      reason_must_contain: ["regime"]
+      tolerance:
+        false_negative_rate_max: 0.30
+    - name: calm_market_no_signal
+      preconditions:
+        - { signal: abs_zscore_60min, op: "<", value: 1.0 }
+      expected_decision: HOLD
+      reason_must_contain: ["no signal"]
+  forbidden:
+    - { condition: not_admitted,      decision_must_not_be: BUY }
+    - { condition: not_admitted,      decision_must_not_be: SELL }
 ---
 Meta-strategy. Sets kelly_fraction by regime (TREND 0.5, MEAN_REVERT/EVENT_DRIVEN 0.25, ILLIQUID 0.1) via decide.kelly_position_size. Apply at entry only.

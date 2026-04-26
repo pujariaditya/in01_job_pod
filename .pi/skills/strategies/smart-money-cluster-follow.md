@@ -20,5 +20,30 @@ requires_subcycle: false
 sources:
   - "polytrackhq.app — 55%+ win rate over 50+ trades"
   - "panewslab.com 27k-trade fragility analysis"
+applicable:
+  - { category: sports, subcategory: "*" }
+  - { category: crypto, subcategory: "*" }
+disallowed:
+  - { category: weather, subcategory: "*" }
+  - { category: news,    subcategory: "*" }
+validation:
+  scenarios:
+    - name: cluster_alignment_buy
+      preconditions:
+        - { signal: cluster_size,            op: ">=", value: 5 }
+        - { signal: smart_money_alignment,   op: ">=", value: 0.6 }
+      expected_decision: BUY
+      reason_must_contain: ["cluster", "smart money"]
+      tolerance:
+        false_negative_rate_max: 0.15
+    - name: calm_market_no_signal
+      preconditions:
+        - { signal: abs_zscore_60min, op: "<", value: 1.0 }
+      expected_decision: HOLD
+      reason_must_contain: ["no signal"]
+  forbidden:
+    - { condition: not_admitted,      decision_must_not_be: BUY }
+    - { condition: not_admitted,      decision_must_not_be: SELL }
+    - { condition: market_is_closing, decision_must_not_be: BUY }
 ---
 Enter when >=2 distinct whales (>=55% wr) take same side within 30 min. Exit on whale exit >=50%, +100% PnL, or -30% stop.

@@ -20,5 +20,30 @@ requires_subcycle: false
 sources:
   - "arxiv 2508.03474 — Probabilistic Forest"
   - "newyorkcityservers.com arbitrage guide"
+applicable:
+  - { category: sports, subcategory: "*" }
+  - { category: crypto, subcategory: "*" }
+disallowed:
+  - { category: weather, subcategory: "*" }
+  - { category: news,    subcategory: "*" }
+validation:
+  scenarios:
+    - name: arb_window_buy
+      preconditions:
+        - { signal: arb_quality,   op: ">=", value: 0.6 }
+        - { signal: liquidity_usd, op: ">=", value: 500 }
+      expected_decision: BUY
+      reason_must_contain: ["arb"]
+      tolerance:
+        false_negative_rate_max: 0.20
+    - name: calm_market_no_signal
+      preconditions:
+        - { signal: abs_zscore_60min, op: "<", value: 1.0 }
+      expected_decision: HOLD
+      reason_must_contain: ["no signal"]
+  forbidden:
+    - { condition: not_admitted,      decision_must_not_be: BUY }
+    - { condition: not_admitted,      decision_must_not_be: SELL }
+    - { condition: market_is_closing, decision_must_not_be: BUY }
 ---
 Buy YES + NO when sum < $1 net of fees. Hold to resolution.
