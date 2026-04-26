@@ -139,3 +139,33 @@ npx tsc --noEmit -p tsconfig.test.json
 docker build -f Dockerfile.pi -t up-pi-pod:wave-c .
 docker images up-pi-pod:wave-c   # ~132 MB compressed / ~679 MB on-disk arm64
 ```
+
+## Pi runtime extensions (Wave D — added 2026-04-26)
+
+Three lifecycle extensions installed alongside up-tools and up-mcp-polypi:
+
+- `up-stage` — hard sequencer enforcing 5-stage allowlists (Sense → Frame →
+  Score → Decide → Critique → Commit). 3 violations end the cycle.
+  Critique → Commit gated on `lastDecision ∈ {BUY, SELL}`; HOLD ends the
+  cycle.
+- `up-memory` — 4 hooks: before_agent_start (loads top-10 skill posteriors +
+  open positions into the system prompt), tool_call (logs skill invocations
+  to agent_skills_log + validates BUY/SELL/HOLD on agent_findings_write +
+  captures lastDecision), context (injects fresh TOB snapshot ephemerally),
+  session_before_compact (preserves trade entries verbatim).
+- `up-killswitch` — polls Dragonfly `killswitch:<job_id>` flag; on set, aborts
+  in-flight tool + writes KILL_SWITCH_TRIPPED lifecycle event.
+
+main.ts now uses real Pi 0.70.2 (`createAgentSession` +
+`DefaultResourceLoader.extensionFactories`); a `createPiLikeAdapter` in
+`main.ts` translates Pi 0.70's `(event, ctx)` shapes to the structural
+`PiLike` contract the extensions expect. Extensions are unchanged from
+their Wave D commits.
+
+Two known follow-ups for Wave E:
+- Watchdog timeout doesn't yet call `session.abort()` — it only races the
+  promise, so the in-flight prompt continues. Cron tick risk: minimal under
+  60s + 45s watchdog, but should be fixed before parity gate.
+- `session_before_compact` is observability-only — Pi's compaction pipeline
+  expects a `CompactionResult`, not a filtered message list. Up-memory's
+  preserve-list is logged but doesn't drive Pi's compactor.
