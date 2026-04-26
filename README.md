@@ -203,3 +203,23 @@ safe to surface to the customer browser.
 Decision events use the canonical `{BUY, SELL, HOLD}` enum locked by
 Wave D Task 1.5. Customer dashboard consumption is documented in
 `customer_backend/docs/runbooks/2026-04-26-customer-visibility-rollout.md`.
+
+## Strategy validation contracts (Wave H — added 2026-04-26)
+
+Each strategy markdown in `.pi/skills/strategies/` now declares
+`applicable: [{category, subcategory}]` cells, `disallowed` (with `*`
+wildcards), and a `validation: {scenarios, forbidden}` block. The
+existing rich frontmatter (`fit_features`, `kelly_fraction`, `sources`,
+etc.) is preserved.
+
+Validation harness lives in `unusual-predictions/job_pod_validation/`.
+Hourly cron in customer_backend (`workers/strategy_validator.py`) runs
+contracts against live data + writes `strategy_validation_log`. Admin
+dashboard at `/admin/strategies/quality` shows per-strategy failure
+rate sorted worst-first.
+
+`resolution-tail-pickup` is the only strategy whose validation contract
+intentionally omits the `market_is_closing` forbidden rule — it trades
+INTO close by design. `regime-aware-sizing` and `calendar-theta-spread`
+are HOLD-default meta-strategies; their contracts only assert HOLD
+scenarios.
