@@ -169,3 +169,18 @@ Two known follow-ups for Wave E:
 - `session_before_compact` is observability-only — Pi's compaction pipeline
   expects a `CompactionResult`, not a filtered message list. Up-memory's
   preserve-list is logged but doesn't drive Pi's compactor.
+
+## Wave F state (2026-04-26 — post-cleanup)
+
+`Dockerfile.pi` is renamed to `Dockerfile` — the Pi-runtime image is the
+only one. The legacy all-in-one Dockerfile (PG/Dragonfly/QuestDB/Redpanda
++ ingest + job_engine) and `build.sh` are deleted along with the s6
+service directories for `job-engine-startup` / `job-engine-cycle` and
+the `agent/scripts/lint-skills-sync.sh` helper (job_engine source is
+gone — Pi pod is the sole skill source).
+
+The build is now plain `docker build -t up-pi-pod:<tag> .` (no helper
+script, no parent-dir build context, no UP_SOURCE / JOB_ENGINE_SOURCE
+build args). PR template + `tests/test_image_build.sh` updated to
+target the < 600 MB Pi-runtime ceiling instead of the < 2.5 GB
+all-in-one ceiling.
